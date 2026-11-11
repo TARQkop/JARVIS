@@ -2,6 +2,16 @@
 const http = require('http');
 const chat = require('./api/chat.js');
 const health = require('./api/health.js');
+const speak = require('./api/speak.js');
+
+// Tiny .env loader for local runs (no dependency). Real environment variables always win,
+// and on Railway/Vercel there is no .env file, so this does nothing there.
+try {
+  for (const line of require('fs').readFileSync(require('path').join(__dirname, '.env'), 'utf8').split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/i);
+    if (m && !line.trim().startsWith('#') && process.env[m[1]] === undefined) process.env[m[1]] = m[2].replace(/^(['"])(.*)\1$/, '$2');
+  }
+} catch { /* no .env file */ }
 
 const MAX_BODY = 200_000; // bytes
 
@@ -26,6 +36,12 @@ http.createServer(async (req, res) => {
         try { req.body = await readJson(req); } catch { return res.status(400).json({ error: 'Invalid or too large body' }); }
       }
       return await chat(req, res);
+    }
+    if (path === '/api/speak') {
+      if (req.method === 'POST') {
+        try { req.body = await readJson(req); } catch { return res.status(400).json({ error: 'Invalid or too large body' }); }
+      }
+      return await speak(req, res);
     }
     if (path === '/api/models') {
       try { return res.json({ models: await chat.listChatModels() }); }
