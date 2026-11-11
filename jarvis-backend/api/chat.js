@@ -2,7 +2,7 @@
 // Streams a reply from the Groq API (OpenAI-compatible) as plain text.
 // The API key stays on the server (env var) and is never sent to the browser.
 
-const GROQ = 'https://api.groq.com/openai/v1'; 
+const GROQ = 'https://api.groq.com/openai/v1';  
 // Preferred chat models, best first. If the configured one is missing, the first of these
 // that your Groq account can actually use is picked automatically.
 const PREFERRED = ['llama-3.3-70b-versatile', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b',
