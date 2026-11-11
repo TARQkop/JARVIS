@@ -27,6 +27,10 @@ http.createServer(async (req, res) => {
       }
       return await chat(req, res);
     }
+    if (path === '/api/models') {
+      try { return res.json({ models: await chat.listChatModels() }); }
+      catch { return res.status(502).json({ error: 'Could not list models (check GROQ_API_KEY).' }); }
+    }
     if (path === '/api/health' || path === '/') return health(req, res);
     res.status(404).json({ error: 'Not found' });
   } catch (e) {

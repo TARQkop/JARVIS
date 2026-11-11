@@ -2,7 +2,24 @@
 // Streams a reply from the Groq API (OpenAI-compatible) as plain text.
 // The API key stays on the server (env var) and is never sent to the browser.
 
-const MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'; // change in Vercel env if Groq retires it
+const GROQ = 'https://api.groq.com/openai/v1';
+// Preferred chat models, best first. If the configured one is missing, the first of these
+// that your Groq account can actually use is picked automatically.
+const PREFERRED = ['llama-3.3-70b-versatile', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b',
+  'llama-3.1-8b-instant', 'qwen/qwen3-32b', 'meta-llama/llama-4-scout-17b-16e-instruct'];
+let activeModel = process.env.GROQ_MODEL || PREFERRED[0];
+
+async function listChatModels() {
+  const r = await fetch(GROQ + '/models', { headers: { authorization: 'Bearer ' + process.env.GROQ_API_KEY } });
+  if (!r.ok) throw new Error('models ' + r.status);
+  const ids = ((await r.json()).data || []).map(m => m.id);
+  return ids.filter(id => !/whisper|tts|guard|orpheus|playai|safeguard|embed/i.test(id));
+}
+async function pickFallbackModel() {
+  const ids = await listChatModels();
+  console.log('Groq models available:', ids.join(', '));
+  return PREFERRED.find(m => ids.includes(m)) || ids.find(id => /llama|gpt-oss|qwen/i.test(id)) || null;
+}
 const MAX_MESSAGES = 30;       // history sent to the model
 const MAX_CHARS = 8000;        // per message
 const MAX_TOKENS = 1500;       // per reply
@@ -51,7 +68,7 @@ function clean(messages) {
   return merged;
 }
 
-module.exports = async (req, res) => {
+const handler = async (req, res) => {
   cors(req, res);
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -70,25 +87,38 @@ module.exports = async (req, res) => {
   const ac = new AbortController();
   res.on('close', () => ac.abort());   // user pressed Stop / closed the tab
 
+  const call = (model) => fetch(GROQ + '/chat/completions', {
+    method: 'POST',
+    signal: ac.signal,
+    headers: { 'content-type': 'application/json', 'authorization': 'Bearer ' + process.env.GROQ_API_KEY },
+    body: JSON.stringify({ model, max_tokens: MAX_TOKENS, stream: true,
+      messages: [{ role: 'system', content: SYSTEM }, ...messages] }),
+  });
+
   let upstream;
   try {
-    upstream = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      signal: ac.signal,
-      headers: {
-        'content-type': 'application/json',
-        'authorization': 'Bearer ' + process.env.GROQ_API_KEY,
-      },
-      body: JSON.stringify({ model: MODEL, max_tokens: MAX_TOKENS, stream: true,
-        messages: [{ role: 'system', content: SYSTEM }, ...messages] }),
-    });
+    upstream = await call(activeModel);
+    if (!upstream.ok && (upstream.status === 404 || upstream.status === 400)) {
+      const detail = await upstream.text().catch(() => '');
+      console.error('Groq error', upstream.status, activeModel, detail);
+      if (/model_not_found|decommission|does not exist|not supported/i.test(detail)) {
+        const alt = await pickFallbackModel().catch(() => null);
+        if (alt && alt !== activeModel) {
+          console.log('Switching model:', activeModel, '->', alt);
+          activeModel = alt;
+          upstream = await call(activeModel);
+        }
+      }
+    }
   } catch (e) {
     return res.status(502).json({ error: 'Could not reach the AI service.' });
   }
 
   if (!upstream.ok) {
     const detail = await upstream.text().catch(() => '');
-    console.error('Groq error', upstream.status, detail);
+    console.error('Groq error', upstream.status, activeModel, detail);
+    if (upstream.status === 401) return res.status(502).json({ error: 'The AI key was rejected. Check GROQ_API_KEY on the server.' });
+    if (upstream.status === 429) return res.status(502).json({ error: 'The AI service is rate-limited right now. Try again in a moment.' });
     return res.status(502).json({ error: 'The AI service returned an error.' });
   }
 
@@ -116,3 +146,6 @@ module.exports = async (req, res) => {
   } catch (e) { /* aborted by client */ }
   res.end();
 };
+
+module.exports = handler;
+module.exports.listChatModels = listChatModels;

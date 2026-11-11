@@ -231,7 +231,7 @@ kbd{font:11px "JetBrains Mono",ui-monospace,monospace;padding:2px 6px;border:1px
   <main class="main">
     <header class="top">
       <button class="ib" id="toggleSb" aria-label="Toggle sidebar"><i data-lucide="panel-left" width="20"></i></button>
-      <div class="model">JARVIS <span class="tag">Demo</span></div>
+      <div class="model">JARVIS <span class="tag" id="modeTag">Live</span></div>
       <div class="sp"></div>
       <button class="ib" id="theme" aria-label="Toggle theme"><i data-lucide="sun" width="19"></i></button>
     </header>
@@ -240,13 +240,12 @@ kbd{font:11px "JetBrains Mono",ui-monospace,monospace;padding:2px 6px;border:1px
       <div class="box">
         <textarea id="input" rows="1" placeholder="Message JARVIS…"></textarea>
         <div class="bar">
-          <button class="ib" id="attach" aria-label="Random image" title="Random image"><i data-lucide="image-plus" width="19"></i></button>
           <div class="sp"></div>
           <button class="ib" id="mic" aria-label="Voice mode"><i data-lucide="audio-lines" width="19"></i></button>
           <button class="send" id="send" disabled aria-label="Send"><i data-lucide="arrow-up" width="19"></i></button>
         </div>
       </div>
-      <div class="hint">JARVIS is a front-end demo. Replies are simulated and may not be accurate.</div>
+      <div class="hint" id="hint">JARVIS can make mistakes. Check important information.</div>
     </div>
   </main>
 </div>
@@ -263,7 +262,7 @@ kbd{font:11px "JetBrains Mono",ui-monospace,monospace;padding:2px 6px;border:1px
     <h2>Settings</h2>
     <div class="set"><div>Appearance<small>Dark or light theme</small></div><button class="pill" id="setTheme">Toggle</button></div>
     <div class="set"><div>Clear all chats<small>Removes local history</small></div><button class="pill danger" id="clearAll">Clear</button></div>
-    <div class="set"><div>About<small>JARVIS UI v1.0 · Front-end only</small></div><button class="pill" id="closeSettings">Close</button></div>
+    <div class="set"><div>About<small>JARVIS v1.1 · AI backend</small></div><button class="pill" id="closeSettings">Close</button></div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -279,7 +278,7 @@ let chats=store.get('nova.chats',null)||[
  {id:'s2',title:'Explain async/await',ts:now-DAY*1.3,messages:[]},
  {id:'s3',title:'Healthy meal ideas',ts:now-DAY*4,messages:[]},
  {id:'s4',title:'Trip to Istanbul',ts:now-DAY*20,messages:[]}];
-let cur=null,busy=false,stop=false;
+let cur=null,busy=false,stop=false,stopFetch=()=>{};
 const save=()=>store.set('nova.chats',chats);
 const getChat=()=>chats.find(c=>c.id===cur);
 
@@ -325,27 +324,29 @@ async function* demoReply(messages){
   for(const p of parts){yield p;await new Promise(r=>setTimeout(r,22))}
 }
 
-/* real AI backend: POST /api/chat (Vercel function, key stays on the server) */
-const API_URL=(window.NOVA_API_URL||'')+'/api/chat';
+/* real AI backend: POST {NOVA_API_URL}/api/chat (the secret key lives on the server only) */
+const BACKEND=(window.NOVA_API_URL||'').replace(/\/$/,'');
+const HAS_BACKEND=!!BACKEND&&!/YOUR-BACKEND/i.test(BACKEND);
+const API_URL=BACKEND+'/api/chat';
+(()=>{const t=$('#modeTag'),h=$('#hint');
+  if(!HAS_BACKEND){t.textContent='Demo';h.textContent='Backend not configured: replies are simulated. Set NOVA_API_URL in config.js.'}})();
 async function* generateReply(messages){
+  if(!HAS_BACKEND){yield* demoReply(messages);return}
+  const ac=new AbortController();stopFetch=()=>ac.abort();
   let started=false;
   try{
-    const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+    const r=await fetch(API_URL,{method:'POST',signal:ac.signal,headers:{'Content-Type':'application/json'},
       body:JSON.stringify({messages:messages.map(m=>({role:m.role,content:m.content}))})});
     if(!r.ok){
       let msg='';try{msg=(await r.json()).error}catch(e){}
-      if(r.status===429||r.status===400)throw Object.assign(new Error(msg||'Request rejected'),{show:true});
-      throw new Error(msg||('HTTP '+r.status));
+      yield '⚠️ '+(msg||('Server error ('+r.status+'). Please try again.'));return;
     }
     const rd=r.body.getReader(),dec=new TextDecoder();
     while(true){const{done,value}=await rd.read();if(done)break;const t=dec.decode(value,{stream:true});if(t){started=true;yield t}}
   }catch(e){
-    if(e.show){yield e.message;return}
-    if(started){yield '\n\n_(connection lost)_';return}
-    // backend not reachable (e.g. opened as a local file): clearly-labelled demo fallback
-    yield '⚠️ **Backend not connected — this is a demo reply.**\n\n';
-    yield* demoReply(messages);
-  }
+    if(e.name==='AbortError')return;
+    yield started?'\n\n_(connection lost)_':'⚠️ Couldn’t reach the server. Check your internet connection, and that this page’s address is listed in the backend’s ALLOWED_ORIGIN.';
+  }finally{stopFetch=()=>{}}
 }
 
 /* sidebar */
@@ -359,7 +360,7 @@ function renderHistory(){
   const raw=$('#search').value,q=raw.trim().toLowerCase(),g={Today:[],Yesterday:[],'Previous 7 days':[],Older:[]};
   $('#searchBox').classList.toggle('has-q',!!raw);
   chats.filter(c=>(c.title||'').toLowerCase().includes(q)||c.messages.some(m=>m.content.toLowerCase().includes(q))).sort((a,b)=>b.ts-a.ts).forEach(c=>{
-    const d=(now-c.ts)/DAY;(d<1?g.Today:d<2?g.Yesterday:d<7?g['Previous 7 days']:g.Older).push(c)});
+    const d=(Date.now()-c.ts)/DAY;(d<1?g.Today:d<2?g.Yesterday:d<7?g['Previous 7 days']:g.Older).push(c)});
   const empty=q?`<div class="empty-h"><i data-lucide="search-x" width="26"></i>No chats match “${esc(raw.trim())}”</div>`
                 :`<div class="empty-h"><i data-lucide="message-square-plus" width="26"></i>No conversations yet.<br>Start a new chat to begin.</div>`;
   $('#history').innerHTML=Object.entries(g).filter(([,a])=>a.length).map(([k,a])=>`<div class="grp">${k}<i>${a.length}</i></div>`+a.map(c=>`<div class="item ${c.id===cur?'active':''}" data-id="${c.id}" role="button" tabindex="0" title="${esc(c.title)}"><span class="t" dir="auto">${esc(c.title)}</span><span class="tm">${fmtTime(c.ts)}</span><span class="acts"><button class="ren-b" data-ren="${c.id}" aria-label="Rename chat"><i data-lucide="pencil" width="14"></i></button><button class="del" data-del="${c.id}" aria-label="Delete chat"><i data-lucide="trash-2" width="14"></i></button></span></div>`).join('')).join('')||empty;
@@ -404,7 +405,6 @@ $('#toggleSb').onclick=()=>{const s=$('#sidebar');if(mobile()){s.classList.toggl
 $('#scrim').onclick=closeMobile;
 
 /* chat render */
-const SUGGEST=[['code','Write code','Create a debounce function in JavaScript','Write a debounce function in JavaScript'],['calendar','Plan my week','Build a balanced study schedule','Plan my study week'],['pen-line','Draft an email','Write a polite follow-up message','Write a follow-up email'],['lightbulb','Explain JARVIS','Learn what this assistant can do','Who are you?']];
 function renderChat(){
   const box=$('#msgs'),c=getChat();
   if(!c||!c.messages.length){
@@ -414,9 +414,7 @@ function renderChat(){
   c.messages.forEach((m,i)=>box.appendChild(msgEl(m,i===c.messages.length-1)));
   icons();scrollDown(true);
 }
-function greeting(){const h=new Date().getHours();return h<12?'Good morning':h<18?'Good afternoon':'Good evening'}
 $('#msgs').addEventListener('pointermove',e=>{const c=e.target.closest('.card');if(c){const r=c.getBoundingClientRect();c.style.setProperty('--mx',e.clientX-r.left+'px');c.style.setProperty('--my',e.clientY-r.top+'px')}});
-document.addEventListener('keydown',e=>{if(e.key==='/'&&!/INPUT|TEXTAREA/.test(document.activeElement.tagName)){e.preventDefault();$('#input').focus()}});
 $('#msgs').onclick=e=>{
   const card=e.target.closest('.card');if(card)return send(card.dataset.p);
   const cp=e.target.closest('[data-copy]');
@@ -430,7 +428,7 @@ $('#msgs').onclick=e=>{
 function msgEl(m,isLast){
   const el=document.createElement('div');el.className='msg '+(m.role==='user'?'user':'ai');el.dataset.i=getChat().messages.indexOf(m);
   if(m.role==='user'){el.innerHTML=`<div class="bubble">${esc(m.content)}${(m.content.match(/https?:\/\/\S+\.(?:png|jpe?g|gif|webp|svg)(?:\?\S*)?/gi)||[]).map(u=>`<img class="pic" src="${esc(u)}" alt="Linked image" loading="lazy">`).join('')}</div>`;return el}
-  el.innerHTML=`<img class="av" src="images/img-1.png" alt=""><div class="content"><span class="demo">Demo response</span><div class="body">${md(m.content)}</div><div class="actions ${isLast?'on':''}">
+  el.innerHTML=`<img class="av" src="images/img-1.png" alt=""><div class="content">${m.demo?'<span class="demo">Demo response</span>':''}<div class="body">${md(m.content)}</div><div class="actions ${isLast?'on':''}">
   <button data-act="copy" aria-label="Copy"><i data-lucide="copy"></i></button>
   <button data-act="like" class="${m.fb==='like'?'sel':''}" aria-label="Like"><i data-lucide="thumbs-up"></i></button>
   <button data-act="dislike" class="${m.fb==='dislike'?'sel':''}" aria-label="Dislike"><i data-lucide="thumbs-down"></i></button>
@@ -451,7 +449,7 @@ async function send(text){
   await respond();
 }
 async function respond(){
-  const c=getChat(),m={role:'assistant',content:''};c.messages.push(m);
+  const c=getChat(),m={role:'assistant',content:''};if(!HAS_BACKEND)m.demo=true;c.messages.push(m);
   document.querySelector('.welcome')?.remove();
   const el=msgEl(m,true);$('#msgs').appendChild(el);icons();
   const body=el.querySelector('.body'),act=el.querySelector('.actions');act.style.visibility='hidden';
@@ -464,11 +462,10 @@ async function respond(){
   icons();save();setBusy(false);scrollDown();
 }
 function regenerate(){if(busy)return;const c=getChat();if(c.messages.at(-1)?.role==='assistant')c.messages.pop();save();renderChat();respond()}
-$('#send').onclick=()=>busy?(stop=true):send();
+$('#send').onclick=()=>busy?(stop=true,stopFetch()):send();
 $('#input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!mobile()){e.preventDefault();send()}});
 const autosize=()=>{const t=$('#input');t.style.height='auto';t.style.height=Math.min(t.scrollHeight,200)+'px';if(!busy)$('#send').disabled=!t.value.trim()};
 $('#input').oninput=autosize;
-$('#attach').onclick=()=>send('Show me a random image');
 document.addEventListener('error',e=>{const t=e.target;if(t.tagName==='IMG'&&t.classList.contains('pic')){const a=document.createElement('a');a.href=t.src;a.target='_blank';a.rel='noopener';a.className='pic-err';a.textContent='Image couldn’t load – open link';t.replaceWith(a)}},true);
 
 /* voice mode (simulated) */
