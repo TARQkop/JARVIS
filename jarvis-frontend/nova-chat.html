@@ -6,6 +6,7 @@
 <title>JARVIS – Your Intelligent Personal AI Assistant</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
 <style>
 :root{--bg:#0b0c0e;--panel:#111316;--elev:#17191d;--line:#23262b;--text:#ececec;--muted:#8b9098;--accent:#34d399;--accent-2:#22d3ee;--accent-soft:rgba(52,211,153,.12);--code:#0d0f12;--sh:0 10px 40px rgba(0,0,0,.45);box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 [data-theme="light"]{--bg:#f7f7f5;--panel:#fff;--elev:#f0f0ee;--line:#e3e3df;--text:#17181a;--muted:#6b7078;--accent:#059669;--accent-2:#0891b2;--accent-soft:rgba(5,150,105,.1);--code:#f4f4f1;--sh:0 10px 40px rgba(0,0,0,.12)}
@@ -146,10 +147,37 @@ kbd{font:11px "JetBrains Mono",ui-monospace,monospace;padding:2px 6px;border:1px
 .body ul,.body ol{margin:0 0 14px;padding-left:24px}.body li{margin:4px 0}
 .body code{font:14px "JetBrains Mono",ui-monospace,monospace;background:var(--elev);padding:2px 6px;border-radius:6px}
 .body a{color:var(--accent-2)}
-.cb{margin:12px 0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--code)}
-.cb-h{display:flex;justify-content:space-between;align-items:center;padding:7px 9px 7px 14px;font-size:13px;color:var(--muted);border-bottom:1px solid var(--line)}
-.cb-h button{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--muted);padding:5px 9px;border-radius:6px}.cb-h button:hover{background:var(--elev);color:var(--text)}
-.cb pre{padding:15px;overflow-x:auto;margin:0}.cb pre code{background:none;padding:0;font-size:14px;line-height:1.6}
+.cb{margin:16px 0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--code);box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.cb-h{display:flex;justify-content:space-between;align-items:center;min-height:44px;padding:6px 9px 6px 14px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--panel) 58%,var(--code))}
+.cb-language{display:flex;align-items:center;gap:8px;font-weight:500;text-transform:uppercase}
+.cb-language i{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent-soft)}
+.cb-tools{display:flex;align-items:center;gap:4px}
+.cb-h button{min-height:30px;display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted);padding:5px 9px;border:1px solid transparent;border-radius:7px;transition:background .15s,color .15s,border-color .15s}
+.cb-h button:hover{background:var(--elev);border-color:var(--line);color:var(--text)}
+.cb-h button[aria-pressed="true"],.cb-h button.copied{color:var(--accent);background:var(--accent-soft)}
+.cb pre{display:flex;max-height:520px;overflow:auto;margin:0;padding:18px 0;scrollbar-color:var(--line) transparent;scrollbar-width:thin}
+.cb pre::-webkit-scrollbar{width:8px;height:8px}.cb pre::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
+.cb-lines{position:sticky;left:0;z-index:1;flex:0 0 44px;align-self:flex-start;padding:0 12px 0 4px;border-right:1px solid var(--line);margin-right:14px;background:var(--code);color:var(--muted);font:14px/1.6 "JetBrains Mono",ui-monospace,monospace;text-align:right;white-space:pre;user-select:none}
+.cb pre code{display:block;min-width:max-content;flex:1;background:none;padding:0 16px 18px 12px;font-size:14px;line-height:1.6;white-space:pre}
+.cb.is-wrapped pre{overflow-x:hidden}
+.cb.is-wrapped pre code{min-width:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.cb.is-wrapped .cb-lines{display:none}
+.cb code.hljs{color:var(--text)}
+.cb .hljs-comment,.cb .hljs-quote{color:#8b949e;font-style:italic}
+.cb .hljs-keyword,.cb .hljs-selector-tag,.cb .hljs-doctag{color:#ff7b72}
+.cb .hljs-string,.cb .hljs-attr,.cb .hljs-template-tag,.cb .hljs-template-variable{color:#7ee787}
+.cb .hljs-title,.cb .hljs-title.function_,.cb .hljs-function .hljs-title{color:#d2a8ff}
+.cb .hljs-number,.cb .hljs-literal,.cb .hljs-variable,.cb .hljs-params{color:#79c0ff}
+.cb .hljs-built_in,.cb .hljs-type,.cb .hljs-class .hljs-title{color:#ffa657}
+.cb .hljs-meta,.cb .hljs-symbol,.cb .hljs-bullet{color:#a5d6ff}
+[data-theme="light"] .cb .hljs-comment,[data-theme="light"] .cb .hljs-quote{color:#6e7781}
+[data-theme="light"] .cb .hljs-keyword,[data-theme="light"] .cb .hljs-selector-tag,[data-theme="light"] .cb .hljs-doctag{color:#cf222e}
+[data-theme="light"] .cb .hljs-string,[data-theme="light"] .cb .hljs-attr,[data-theme="light"] .cb .hljs-template-tag,[data-theme="light"] .cb .hljs-template-variable{color:#116329}
+[data-theme="light"] .cb .hljs-title,[data-theme="light"] .cb .hljs-title.function_,[data-theme="light"] .cb .hljs-function .hljs-title{color:#8250df}
+[data-theme="light"] .cb .hljs-number,[data-theme="light"] .cb .hljs-literal,[data-theme="light"] .cb .hljs-variable,[data-theme="light"] .cb .hljs-params{color:#0550ae}
+[data-theme="light"] .cb .hljs-built_in,[data-theme="light"] .cb .hljs-type,[data-theme="light"] .cb .hljs-class .hljs-title{color:#953800}
+[data-theme="light"] .cb .hljs-meta,[data-theme="light"] .cb .hljs-symbol,[data-theme="light"] .cb .hljs-bullet{color:#0969da}
+@media(max-width:600px){.cb{margin:12px 0}.cb-h{padding-left:11px}.cb pre code,.cb-lines{font-size:13px}.cb-lines{flex-basis:36px;margin-right:10px;padding-right:9px}.cb-h button{padding:5px 7px}}
 .cursor::after{content:"";display:inline-block;width:8px;height:16px;background:var(--accent);margin-left:3px;vertical-align:-2px;animation:blink 1s steps(2) infinite}
 @keyframes blink{50%{opacity:0}}
 .demo{display:inline-block;font-size:12px;color:var(--muted);border:1px dashed var(--line);border-radius:6px;padding:1px 7px;margin-bottom:9px}
@@ -200,6 +228,7 @@ kbd{font:11px "JetBrains Mono",ui-monospace,monospace;padding:2px 6px;border:1px
 .pill:hover{border-color:var(--accent)}.pill.danger:hover{border-color:#f87171;color:#f87171}
 .scrim{display:none}
 /* ElevenLabs speech: header toggle, speaking dock, avatar glow */
+#voiceToggle .vi-on,#voiceToggle .vi-off{display:flex;align-items:center;justify-content:center;line-height:0}
 #voiceToggle .vi-off{display:none}
 #voiceToggle[aria-pressed="false"] .vi-on{display:none}
 #voiceToggle[aria-pressed="false"] .vi-off{display:inline-flex}
@@ -219,6 +248,7 @@ kbd{font:11px "JetBrains Mono",ui-monospace,monospace;padding:2px 6px;border:1px
 @keyframes vload{0%,100%{transform:scaleY(.25);opacity:.4}50%{transform:scaleY(.5);opacity:1}}
 .vdock .vlabel{font-size:13px;color:var(--muted);min-width:76px;white-space:nowrap}
 .vdock .vb{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:var(--muted);transition:.15s}
+.vdock .vb span{display:flex;align-items:center;justify-content:center;line-height:0}
 .vdock .vb:hover{background:var(--elev);color:var(--text)}
 .vdock .vb:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .vdock[data-s="loading"] #vdPause,.vdock[data-s="playing"] .vi-play,.vdock[data-s="paused"] .vi-pause{display:none}
@@ -263,7 +293,7 @@ kbd{font:11px "JetBrains Mono",ui-monospace,monospace;padding:2px 6px;border:1px
       <button class="ib" id="toggleSb" aria-label="Toggle sidebar"><i data-lucide="panel-left" width="20"></i></button>
       <div class="model">JARVIS <span class="tag" id="modeTag">Live</span></div>
       <div class="sp"></div>
-      <button class="ib" id="voiceToggle" aria-pressed="false" aria-label="Voice replies" title="Voice replies"><span class="vi-on"><i data-lucide="volume-2" width="19"></i></span><span class="vi-off"><i data-lucide="volume-x" width="19"></i></span></button>
+      <button class="ib" id="voiceToggle" aria-pressed="true" aria-label="Voice replies" title="Voice replies"><span class="vi-on"><i data-lucide="volume-2" width="19"></i></span><span class="vi-off"><i data-lucide="volume-x" width="19"></i></span></button>
       <button class="ib" id="theme" aria-label="Toggle theme"><i data-lucide="sun" width="19"></i></button>
     </header>
     <div class="vdock" id="vdock" data-s="idle" role="status" aria-live="polite">
@@ -299,7 +329,7 @@ kbd{font:11px "JetBrains Mono",ui-monospace,monospace;padding:2px 6px;border:1px
   <div class="mbox">
     <h2>Settings</h2>
     <div class="set"><div>Appearance<small>Dark or light theme</small></div><button class="pill" id="setTheme">Toggle</button></div>
-    <div class="set"><div>Voice replies<small>Speak JARVIS answers aloud</small></div><button class="pill" id="setVoice">Off</button></div>
+    <div class="set"><div>Voice replies<small>Speak JARVIS answers aloud</small></div><button class="pill" id="setVoice">On</button></div>
     <div class="set"><div>Clear all chats<small>Removes local history</small></div><button class="pill danger" id="clearAll">Clear</button></div>
     <div class="set"><div>About<small>JARVIS v1.1 · AI backend</small></div><button class="pill" id="closeSettings">Close</button></div>
   </div>
@@ -331,7 +361,7 @@ $('#theme').onclick=flip;$('#setTheme').onclick=flip;
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 function md(src){
   const blocks=[];
-  src=src.replace(/```(\w*)\n([\s\S]*?)(```|$)/g,(m,l,c)=>{blocks.push(`<div class="cb"><div class="cb-h"><span>${l||'code'}</span><button data-copy><i data-lucide="copy" width="14"></i>Copy</button></div><pre><code>${esc(c.replace(/\n$/,''))}</code></pre></div>`);return `\n@@B${blocks.length-1}@@\n`});
+  src=src.replace(/```(\w*)\n([\s\S]*?)(```|$)/g,(m,l,c)=>{const code=c.replace(/\n$/,''),lineNumbers=Array.from({length:Math.max(1,code.split('\n').length)},(_,i)=>i+1).join('\n'),languages={js:'JavaScript',jsx:'React JSX',ts:'TypeScript',tsx:'React TSX',py:'Python',python:'Python',sh:'Shell',bash:'Bash',json:'JSON',html:'HTML',css:'CSS',sql:'SQL',go:'Go',rs:'Rust',java:'Java',cpp:'C++',c:'C',yaml:'YAML',yml:'YAML',md:'Markdown',markdown:'Markdown'},label=languages[l.toLowerCase()]||l||'Plain text';let html=esc(code);try{if(window.hljs)html=l&&hljs.getLanguage(l)?hljs.highlight(code,{language:l,ignoreIllegals:true}).value:hljs.highlightAuto(code).value}catch(e){}blocks.push(`<div class="cb"><div class="cb-h"><span class="cb-language"><i></i>${esc(label)}</span><div class="cb-tools"><button type="button" data-wrap aria-label="Wrap long lines" title="Wrap long lines" aria-pressed="false"><i data-lucide="wrap-text" width="14"></i></button><button type="button" data-copy aria-label="Copy code"><i data-lucide="copy" width="14"></i>Copy</button></div></div><pre><span class="cb-lines" aria-hidden="true">${lineNumbers}</span><code class="hljs">${html}</code></pre></div>`);return `\n@@B${blocks.length-1}@@\n`});
   const inl=t=>esc(t).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/(^|\W)\*([^*]+)\*/g,'$1<i>$2</i>').replace(/!\[([^\]]*)\]\(art:(\w+)\)/g,(m,a,s)=>`<img class="pic" alt="${a}" src="${art(s)}">`).replace(/!\[([^\]]*)\]\((https?:[^)\s]+)\)/g,'<img class="pic" alt="$1" src="$2" loading="lazy">').replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
   let out='',list=null;
   const close=()=>{if(list){out+=`</${list}>`;list=null}};
@@ -457,7 +487,8 @@ $('#msgs').addEventListener('pointermove',e=>{const c=e.target.closest('.card');
 $('#msgs').onclick=e=>{
   const card=e.target.closest('.card');if(card)return send(card.dataset.p);
   const cp=e.target.closest('[data-copy]');
-  if(cp){copy(cp.closest('.cb').querySelector('code').innerText);return}
+  if(cp){copy(cp.closest('.cb').querySelector('code').innerText).then(ok=>{if(!ok||!cp.isConnected)return;cp.classList.add('copied');cp.setAttribute('aria-label','Code copied');cp.innerHTML='<i data-lucide="check" width="14"></i>Copied';icons();setTimeout(()=>{if(!cp.isConnected)return;cp.classList.remove('copied');cp.setAttribute('aria-label','Copy code');cp.innerHTML='<i data-lucide="copy" width="14"></i>Copy';icons()},1400)});return}
+  const wrap=e.target.closest('[data-wrap]');if(wrap){const enabled=wrap.closest('.cb').classList.toggle('is-wrapped');wrap.setAttribute('aria-pressed',String(enabled));wrap.title=enabled?'Disable line wrapping':'Wrap long lines';wrap.setAttribute('aria-label',wrap.title);return}
   const a=e.target.closest('[data-act]');if(!a)return;
   const msg=a.closest('.msg'),c=getChat(),m=c.messages[+msg.dataset.i],act=a.dataset.act;
   if(act==='copy')copy(m.content);
@@ -477,7 +508,7 @@ function msgEl(m,isLast){
   return el;
 }
 const scrollDown=(f)=>{const s=$('#scroll');if(f||s.scrollHeight-s.scrollTop-s.clientHeight<160)s.scrollTo({top:s.scrollHeight,behavior:f?'auto':'smooth'})};
-function copy(t){(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('Copied to clipboard')).catch(()=>toast('Copy unavailable'))}
+function copy(t){return(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>{toast('Copied to clipboard');return true}).catch(()=>{toast('Copy unavailable');return false})}
 function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('show'),1600)}
 
 /* sending */
@@ -517,7 +548,7 @@ const voice=(()=>{
   const SILENT='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
   const audio=new Audio();audio.preload='auto';
   const dock=$('#vdock'),tgl=$('#voiceToggle');
-  let onIdle=null,enabled=store.get('nova.voice',false)===true,state='idle',url=null,ctrl=null,token=0,curEl=null,primed=false;
+  let onIdle=null,enabled=true,state='idle',url=null,ctrl=null,token=0,curEl=null,primed=false;
 
   /* markdown -> plain text that sounds natural (code blocks, links and images are not read out) */
   function clean(src){
