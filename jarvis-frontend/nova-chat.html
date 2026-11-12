@@ -184,7 +184,9 @@ kbd{font:11px "JetBrains Mono",ui-monospace,monospace;padding:2px 6px;border:1px
 .voice[data-s="speaking"] .vo::before{animation:ring 1s ease-out infinite}
 @keyframes pulse{50%{transform:scale(1.07)}}@keyframes ring{from{opacity:.7;transform:scale(1)}to{opacity:0;transform:scale(1.5)}}
 @keyframes spin{to{transform:rotate(360deg)}}@keyframes talk{to{transform:scale(1.12)}}
-.vs{font-size:18px;font-weight:500;letter-spacing:.04em}.vt{color:#8b9098;font-size:14px;margin-top:-18px}
+.vs{font-size:18px;font-weight:500;letter-spacing:.04em}.vt{color:#8b9098;font-size:14px;margin-top:-18px;max-width:min(80vw,520px);text-align:center;min-height:1.5em;padding:0 12px}
+.vo{cursor:pointer}
+.vlang{position:absolute;top:calc(16px + env(safe-area-inset-top,0px));right:16px;padding:7px 14px;border:1px solid rgba(255,255,255,.18);border-radius:99px;font-size:13px;font-weight:500;letter-spacing:.08em;color:#ececec;background:rgba(255,255,255,.06);transition:.15s}.vlang:hover{border-color:#34d399}
 .vend{width:56px;height:56px;border-radius:50%;background:#ef4444;display:grid;place-items:center;transition:.15s}
 .vend:hover{background:#dc2626;transform:scale(1.05)}
 /* modal */
@@ -286,9 +288,10 @@ kbd{font:11px "JetBrains Mono",ui-monospace,monospace;padding:2px 6px;border:1px
 </div>
 
 <div class="voice" id="voice" data-s="listening">
-  <div class="vo"></div>
+  <button class="vlang" id="vlang" aria-label="Speech language">AR</button>
+  <div class="vo" id="vorb" role="button" aria-label="Tap to send or interrupt"></div>
   <div class="vs" id="vs">Listening…</div>
-  <div class="vt">Voice mode (simulated)</div>
+  <div class="vt" id="vt" dir="auto">Speak now</div>
   <button class="vend" id="vend" aria-label="End voice mode"><i data-lucide="x" width="24" color="#fff"></i></button>
 </div>
 
@@ -499,7 +502,7 @@ async function respond(){
   }catch(e){replyFailed=true;m.content+='\n\nSomething went wrong. Please try again.'}
   body.classList.remove('cursor');body.innerHTML=md(m.content||'(stopped)');act.style.visibility='';
   icons();save();setBusy(false);scrollDown();
-  if(voice.enabled&&HAS_BACKEND&&!replyFailed&&!stop&&m.content.trim()&&cur===c.id)voice.speak(m.content,el);
+  if((voice.enabled||vm.active)&&HAS_BACKEND&&!replyFailed&&!stop&&m.content.trim()&&cur===c.id)voice.speak(m.content,el);
 }
 function regenerate(){if(busy)return;const c=getChat();if(c.messages.at(-1)?.role==='assistant')c.messages.pop();save();renderChat();respond()}
 $('#send').onclick=()=>busy?(stop=true,stopFetch()):send();
@@ -514,7 +517,7 @@ const voice=(()=>{
   const SILENT='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
   const audio=new Audio();audio.preload='auto';
   const dock=$('#vdock'),tgl=$('#voiceToggle');
-  let enabled=store.get('nova.voice',false)===true,state='idle',url=null,ctrl=null,token=0,curEl=null,primed=false;
+  let onIdle=null,enabled=store.get('nova.voice',false)===true,state='idle',url=null,ctrl=null,token=0,curEl=null,primed=false;
 
   /* markdown -> plain text that sounds natural (code blocks, links and images are not read out) */
   function clean(src){
@@ -548,7 +551,7 @@ const voice=(()=>{
     document.querySelectorAll('.msg.speaking').forEach(e=>{if(e!==curEl||state==='idle'){e.classList.remove('speaking');e.querySelector('[data-act=speak]')?.classList.remove('sel')}});
     if(curEl&&state!=='idle'){curEl.classList.toggle('speaking',state==='playing');curEl.querySelector('[data-act=speak]')?.classList.toggle('sel',state!=='idle')}
   }
-  function setState(s){state=s;paint()}
+  function setState(s){state=s;paint();if(s==='idle'&&onIdle)onIdle()}
   function release(){                  // drop the audio source and free the temporary object URL
     const u=url;url=null;
     try{audio.pause();audio.removeAttribute('src');audio.load()}catch(e){}
@@ -558,8 +561,8 @@ const voice=(()=>{
 
   /* Browsers only allow audio after a user gesture. Called inside the send/toggle click, this unlocks the
      shared element once (needed on iOS Safari) so the reply can start by itself when it arrives later. */
-  function prime(){
-    if(!enabled||primed||state!=='idle')return;primed=true;
+  function prime(force){
+    if((!enabled&&!force)||primed||state!=='idle')return;primed=true;
     try{audio.src=SILENT;const p=audio.play();if(p)p.then(()=>{if(!url)audio.pause()}).catch(()=>{primed=false})}catch(e){primed=false}
   }
 
@@ -604,7 +607,7 @@ const voice=(()=>{
   };
   paint();
   return{
-    get enabled(){return enabled},
+    get enabled(){return enabled},get busy(){return state!=='idle'},set onIdle(f){onIdle=f},
     speak,stop,prime,
     toggleMessage(m,el){                // the "Listen" button under a reply (works even when voice replies are off)
       if(curEl===el&&state!=='idle'){stop();return}
@@ -614,12 +617,61 @@ const voice=(()=>{
   };
 })();
 
-/* voice mode (simulated) */
-let vt=[];
-const VS=[['listening','Listening…',2600],['thinking','Thinking…',1600],['speaking','Speaking…',3200]];
-function vloop(i=0){const[s,l,d]=VS[i%3];$('#voice').dataset.s=s;$('#vs').textContent=l;vt.push(setTimeout(()=>vloop(i+1),d))}
-$('#mic').onclick=()=>{$('#voice').classList.add('open');vloop()};
-$('#vend').onclick=()=>{$('#voice').classList.remove('open');vt.forEach(clearTimeout);vt=[]};
+/* voice conversation mode: you speak -> JARVIS answers -> JARVIS speaks -> it listens again */
+const vm=(()=>{
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const ov=$('#voice'),lab=$('#vs'),hint=$('#vt'),lg=$('#vlang');
+  const LANGS={ar:['ar-IQ','AR'],en:['en-US','EN']};
+  let lang=store.get('nova.sr',null);if(!LANGS[lang])lang=(navigator.language||'').toLowerCase().startsWith('ar')?'ar':'en';
+  let active=false,phase='idle',rec=null,text='',timer=0;
+  const ui=(p,l,h)=>{phase=p;ov.dataset.s=p;lab.textContent=l;hint.textContent=h||''};
+  const paintLang=()=>{lg.textContent=LANGS[lang][1]};
+  function listen(){
+    if(!active)return;clearTimeout(timer);text='';
+    ui('listening','Listening…','Speak now · tap the orb when done');
+    const r=new SR();rec=r;
+    r.lang=LANGS[lang][0];r.interimResults=true;r.continuous=false;
+    r.onresult=e=>{let t='';for(let i=0;i<e.results.length;i++)t+=e.results[i][0].transcript;text=t;hint.textContent=t};
+    r.onerror=e=>{
+      if(e.error==='not-allowed'||e.error==='service-not-allowed'){toast('Microphone permission was denied');close()}
+      else if(e.error==='network'){toast('Speech recognition needs an internet connection');close()}
+    };
+    r.onend=()=>{
+      if(!active||phase!=='listening'||rec!==r)return;
+      if(text.trim())submit(text.trim());else timer=setTimeout(listen,300);
+    };
+    try{r.start()}catch(e){timer=setTimeout(listen,500)}
+  }
+  async function submit(t){
+    rec=null;ui('thinking','Thinking…',t);
+    await send(t);
+    if(!active)return;
+    if(replyFailed){toast('Couldn’t get a reply, try again');return listen()}
+    if(voice.busy)ui('speaking','Speaking…','');else listen();
+  }
+  function open(){
+    if(!SR){toast('Speech recognition isn’t supported here. Try Chrome or Safari.');return}
+    if(!HAS_BACKEND){toast('Voice needs the backend to be configured');return}
+    active=true;ov.classList.add('open');voice.prime(true);paintLang();listen();
+  }
+  function close(){
+    active=false;clearTimeout(timer);const r=rec;rec=null;try{r&&r.abort()}catch(e){}
+    voice.stop();phase='idle';ov.classList.remove('open');
+  }
+  voice.onIdle=()=>{if(active&&phase==='speaking')listen()};
+  $('#mic').onclick=open;
+  $('#vend').onclick=close;
+  $('#vorb').onclick=()=>{
+    if(phase==='listening'&&rec)rec.stop();          // done talking: send now
+    else if(phase==='speaking')voice.stop();         // interrupt and talk again
+  };
+  lg.onclick=()=>{
+    lang=lang==='ar'?'en':'ar';store.set('nova.sr',lang);paintLang();
+    if(phase==='listening'){const r=rec;rec=null;try{r&&r.abort()}catch(e){}listen()}
+  };
+  paintLang();
+  return{get active(){return active},close};
+})();
 
 /* settings */
 $('#openSettings').onclick=()=>$('#modal').classList.add('open');
