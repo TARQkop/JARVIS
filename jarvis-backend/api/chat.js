@@ -25,7 +25,7 @@ const MAX_CHARS = 8000;        // per message
 const MAX_TOKENS = 1500;       // per reply
 const WINDOW_MS = 60_000, MAX_REQ = 20;   // best-effort rate limit per IP
 
-const SYSTEM = `You are JARVIS (also called NOVA), a friendly, capable personal AI assistant.
+const SYSTEM = `You are JARVIS, a friendly, capable personal AI assistant.
 Reply in the same language the user writes in (Arabic or English, etc.).
 Be clear and concise. Use Markdown: short paragraphs, lists, and fenced code blocks with a language tag.
 If you are not sure about something, say so instead of guessing.`;

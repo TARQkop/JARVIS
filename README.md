@@ -19,7 +19,7 @@ Streaming chat powered by [Groq](https://groq.com) · Natural voice replies by [
 
 ## Overview
 
-JARVIS (also called **NOVA**) is a personal AI assistant split into two independent parts:
+JARVIS is a personal AI assistant split into two independent parts:
 
 | Part | Folder | Role |
 |------|--------|------|
@@ -165,7 +165,7 @@ curl -N -X POST http://localhost:3000/api/chat \
 # Text-to-speech
 curl -X POST http://localhost:3000/api/speak \
   -H "Content-Type: application/json" \
-  -d '{"text":"Hello, I am NOVA."}' --output test.mp3
+  -d '{"text":"Hello, I am JARVIS."}' --output test.mp3
 ```
 
 **Error responses** are JSON — `{ "error": "..." }`:

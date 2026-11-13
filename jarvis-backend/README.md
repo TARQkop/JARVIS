@@ -20,7 +20,7 @@ Then open `/api/health` — it should show `"keyConfigured":true,"voiceConfigure
 ```
 curl -X POST http://localhost:3000/api/speak \
   -H "Content-Type: application/json" \
-  -d '{"text":"Hello, I am NOVA."}' --output test.mp3
+  -d '{"text":"Hello, I am JARVIS."}' --output test.mp3
 ```
 Errors come back as JSON `{ "error": "..." }`: 400 bad/empty text, 413 too long, 403 origin not allowed,
 429 rate limited, 502/503/504 voice service problems. Audio is streamed through and never stored.
